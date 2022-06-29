@@ -1,0 +1,5 @@
+#Ignore list
+/docker-compose.yaml
+/dags/__pycache__/
+/logs/
+/.env
