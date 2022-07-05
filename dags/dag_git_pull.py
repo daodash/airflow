@@ -26,8 +26,7 @@ dag = DAG(
 
 t1 = BashOperator(
     task_id='dag_git_pull.1',
-    bash_command='echo "Running gitpull"',
-    bash_command='pwd',
+    bash_command='echo "Running gitpull" && ls && pwd',
     #bash_command='cd /home/airflow/airflow && git pull''
     dag=dag
 )
