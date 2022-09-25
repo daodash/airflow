@@ -16,7 +16,7 @@ args = {
 }
 
 with DAG(
-    dag_id='discourse_dag',
+    dag_id='dag_discourse_daily',
     description='DAODash Discourse DAG',
     schedule_interval="@daily",
     catchup=False,
