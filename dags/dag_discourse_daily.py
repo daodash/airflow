@@ -2,7 +2,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datetime import datetime, timedelta
-from scripts.discourse.etl import pull_categories, pull_users, pull_topics, pull_posts_and_polls
+from discourse import pull_categories, pull_users, pull_topics, pull_posts_and_polls
 from slack_notify import task_fail_slack_alert
 
 #airflow args
