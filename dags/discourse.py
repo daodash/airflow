@@ -5,7 +5,6 @@ from typing import Optional, Dict, List
 from airflow.models import Variable
 
 # load env variables
-load_dotenv()
 discourse_url = Variable.get("DISCOURSE_URL")
 discourse_api_key = Variable.get("DISCOURSE_API_KEY")
 discourse_api_username = Variable.get("DISCOURSE_API_USERNAME")
