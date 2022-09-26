@@ -28,6 +28,11 @@ def pull_posts_and_polls():
     discourse_url = Variable.get("DISCOURSE_URL")
     discourse_api_key = Variable.get("DISCOURSE_API_KEY")
     discourse_api_username = Variable.get("DISCOURSE_API_USERNAME")
+    db_string = Variable.get('DB_STRING')
+    db_schema = Variable.get('DB_SCHEMA')
+
+    # create db engine
+    db_engine = db.create_engine(db_string)
 
     polls = []
     votes = []
