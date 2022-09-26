@@ -28,11 +28,6 @@ def pull_categories():
     discourse_url = Variable.get("DISCOURSE_URL")
     discourse_api_key = Variable.get("DISCOURSE_API_KEY")
     discourse_api_username = Variable.get("DISCOURSE_API_USERNAME")
-    db_string = Variable.get('DB_STRING')
-    db_schema = Variable.get('DB_SCHEMA')
-
-    # create db engine
-    db_engine = db.create_engine(db_string)
 
     api_query = '{}/categories.json'.format(discourse_url)
     table_name = 'discourse_categories'
@@ -89,6 +84,12 @@ def data_transform_and_load(
     """
     Prep given df_to_load and load it to table_name
     """
+    db_string = Variable.get('DB_STRING')
+    db_schema = Variable.get('DB_SCHEMA')
+
+    # create db engine
+    db_engine = db.create_engine(db_string)
+
     # check if DataFrame contains any data, if it doesn't - skip the rest
     if df_to_load.empty:
         return False
