@@ -22,27 +22,39 @@ args = {
 }
 
 ########################################################
-# Categories
-def pull_categories():
+# Users
+def pull_users():
     # load env variables
     discourse_url = Variable.get("DISCOURSE_URL")
     discourse_api_key = Variable.get("DISCOURSE_API_KEY")
     discourse_api_username = Variable.get("DISCOURSE_API_USERNAME")
 
-    api_query = '{}/categories.json'.format(discourse_url)
-    table_name = 'discourse_categories'
+    for page_n in range(1000):
+        api_query = '{}/directory_items.json?period=all&order=topic_count&page={}'.format(discourse_url, page_n)
+        table_name = 'discourse_users'
 
-    # retrieve json results and convert to dataframe
-    result = requests.get(api_query).json()
-    df = pd.json_normalize(result['category_list']['categories'])
+        # retrieve json results and convert to dataframe
+        result = requests.get(api_query).json()
+        df = pd.json_normalize(result['directory_items'])
 
-    # prep and upsert data
-    data_transform_and_load(
-        df_to_load=df,
-        table_name=table_name,
-        list_of_col_names=['id', 'name', 'slug'],
-        extra_update_fields={"updated_at": "NOW()"}
-    )
+        # prep and upsert data
+        isLoaded = data_transform_and_load(
+            df_to_load=df,
+            table_name=table_name,
+            list_of_col_names=[
+                'id', 'username', 'name', 'days_visited', 'time_read', 'topics_entered',
+                'topic_count', 'posts_read', 'post_count', 'likes_received', 'likes_given'
+            ],
+            rename_mapper={
+                'user.username': 'username',
+                'user.name': 'name'
+            },
+            extra_update_fields={"updated_at": "NOW()"}
+        )
+
+        # check if current page contains any users, exit loop if it doesn't
+        if not isLoaded:
+            break
 
 def create_upsert_method(meta: db.MetaData, extra_update_fields: Optional[Dict[str, str]]):
     """
@@ -123,7 +135,7 @@ def data_transform_and_load(
 
 
 with DAG(
-    dag_id='dag_discourse_category_daily',
+    dag_id='dag_discourse_users_daily',
     description='DAODash Discourse DAG',
     schedule_interval="@daily",
     catchup=False,
@@ -131,7 +143,7 @@ with DAG(
     default_args=args,
 ) as dag:
 
-    pull_categories_task = PythonOperator(
-        task_id='pull_categories',
-        python_callable=pull_categories,
+    pull_users_task = PythonOperator(
+        task_id='pull_users',
+        python_callable=pull_users,
     )
