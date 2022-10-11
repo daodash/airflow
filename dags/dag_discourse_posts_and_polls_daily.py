@@ -3,26 +3,29 @@ from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datetime import datetime, timedelta
 from slack_notify import task_fail_slack_alert
-
+import time
 import requests
 import pandas as pd
 import sqlalchemy as db
+from sqlalchemy.engine import CursorResult
+
 from typing import Optional, Dict
 from airflow.models import Variable
 
 from upsert import Upsert
 
-pg_upsert = Upsert() #instantiate Postgres Upsert
+pg_upsert = Upsert()  # instantiate Postgres Upsert
 
-#airflow args
+# airflow args
 args = {
     'owner': 'daodash',
     'start_date': days_ago(1),
     'retries': 2,
     'retry_delay': timedelta(minutes=30),
     'on_failure_callback': task_fail_slack_alert,
-#    'on_success_callback': mark_success
+    # 'on_success_callback': mark_success
 }
+
 
 ########################################################
 # Posts & Polls
@@ -39,43 +42,27 @@ def pull_posts_and_polls():
 
     polls = []
     votes = []
+    posts_df = pd.DataFrame()
 
     sql = 'SELECT id AS topic_id FROM {}.{} ORDER BY 1;'.format(db_schema, 'discourse_topics')
     with db_engine.connect() as conn:
-        result = conn.execute(statement=sql)
+        result: CursorResult = conn.execute(statement=sql)
         for row in result:
+            time.sleep(0.2)
             topic_id = row.topic_id
 
             api_query = '{}/t/{}.json?api_key={}&api_username={}'.format(
                 discourse_url, topic_id, discourse_api_key, discourse_api_username
             )
-            table_name = 'discourse_posts'
+            print(api_query)
 
             # retrieve json results for posts
             result = requests.get(api_query).json()
             posts = result['post_stream']['posts']
-            df = pd.json_normalize(posts)
 
-            # prep and upsert data
-            isLoaded = pg_upsert.data_transform_and_load(
-                df_to_load=df,
-                table_name=table_name,
-                list_of_col_names=[
-                    'id', 'topic_id', 'content', 'reply_count', 'reads_count', 'readers_count',
-                    'user_id', 'created_at', 'updated_at', 'deleted_at'
-                ],
-                rename_mapper={
-                    'cooked': 'content',
-                    'reads': 'reads_count'
-                },
-                extra_update_fields=None
-            )
+            posts_df = pd.concat([posts_df, pd.json_normalize(posts)], ignore_index=True)
 
-            # check if current topic contains any data, if it doesn't - skip and continue
-            if not isLoaded:
-                continue
-
-            # check if there are polls attached to the posts and pull them into saparate DataFrame
+            # check if there are polls attached to the posts and pull them into separate DataFrame
             for p in posts:
                 if 'polls' in p:
                     # collect polls
@@ -93,6 +80,22 @@ def pull_posts_and_polls():
                         dfv['vote_idx'] = dfv.index + 1
                         votes.append(dfv)
 
+    # prep and upsert Post data
+    table_name = 'discourse_posts'
+
+    pg_upsert.data_transform_and_load(
+        df_to_load=posts_df,
+        table_name=table_name,
+        list_of_col_names=[
+            'id', 'topic_id', 'content', 'reply_count', 'reads_count', 'readers_count',
+            'user_id', 'created_at', 'updated_at', 'deleted_at'
+        ],
+        rename_mapper={
+            'cooked': 'content',
+            'reads': 'reads_count'
+        },
+        extra_update_fields=None
+    )
 
     # Polls
     table_name = 'discourse_polls'
@@ -133,14 +136,13 @@ def pull_posts_and_polls():
 
 
 with DAG(
-    dag_id='dag_discourse_posts_and_polls_daily',
-    description='DAODash Discourse DAG',
-    schedule_interval="@daily",
-    catchup=False,
-    tags=None,
-    default_args=args,
+        dag_id='dag_discourse_posts_and_polls_daily',
+        description='DAODash Discourse DAG',
+        schedule_interval="@daily",
+        catchup=False,
+        tags=None,
+        default_args=args,
 ) as dag:
-
     pull_posts_and_polls_task = PythonOperator(
         task_id='pull_posts_and_polls',
         python_callable=pull_posts_and_polls,
