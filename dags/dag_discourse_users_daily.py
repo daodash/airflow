@@ -8,9 +8,7 @@ import requests
 import pandas as pd
 from airflow.models import Variable
 
-from upsert import Upsert
-
-pg_upsert = Upsert() #instantiate Postgres Upsert
+from postgres import pg_upsert
 
 #airflow args
 args = {
@@ -27,6 +25,7 @@ args = {
 def pull_users():
     # load env variables
     discourse_url = "https://forum.bankless.community/"  # Variable.get("DISCOURSE_URL")
+    db_name = "dao_dash"
 
     for page_n in range(1000):
         api_query = '{}/directory_items.json?period=all&order=topic_count&page={}'.format(discourse_url, page_n)
@@ -37,7 +36,8 @@ def pull_users():
         df = pd.json_normalize(result['directory_items'])
 
         # prep and upsert data
-        isLoaded = pg_upsert.data_transform_and_load(
+        isLoaded = pg_upsert(
+            database_name=db_name,
             df_to_load=df,
             table_name=table_name,
             list_of_col_names=[
