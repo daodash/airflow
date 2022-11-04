@@ -38,11 +38,11 @@ def create_upsert_method(meta: db.MetaData, extra_update_fields: Optional[Dict[s
     return method
 
 
-def pg_upsert(
+def pg_append(
         df_to_load: pd.DataFrame,
         database_name: str,
         table_name: str,
-        list_of_col_names: List,
+        list_of_col_names: Optional[List] = None,
         schema_name: str = "public",
         rename_mapper: Optional[Dict[str, str]] = None,
         extra_update_fields: Optional[Dict[str, str]] = None
@@ -52,7 +52,7 @@ def pg_upsert(
     :param df_to_load{Dataframe}: Dataframe to Load
     :param database_name{str}: Database Name eg: dao_dash
     :param table_name{str}: Name of table
-    :param list_of_col_names List{str}: List of column names to load
+    :param list_of_col_names List{str}: Optional, List of column names to load
     :param schema_name{str}: Optional, Table schema name
     :param rename_mapper{Dict[str,str]}: Optional, Columns that need to be renamed
     :param extra_update_fields{Dict[str,str]}: Optional, Metadata load timestamp update field name
@@ -68,8 +68,8 @@ def pg_upsert(
 
     """
 
-    user = 'dd_airflow'#Variable.get('pg_user')
-    password = 'AVNS_T1EFUhLGpdQeqwdyCG_'#Variable.get('pg_password')
+    user = Variable.get('pg_user')
+    password = Variable.get('pg_password')
 
     db_string = f"postgresql://{user}:{password}@db-postgresql-sfo3-66374-do-user-9934748-0" \
                      f".b.db.ondigitalocean.com:25060/{database_name}"
@@ -86,7 +86,8 @@ def pg_upsert(
         df_to_load = df_to_load.rename(columns=rename_mapper, inplace=False)
 
     # include only necessary columns
-    df_to_load = df_to_load.filter(list_of_col_names)
+    if list_of_col_names:
+        df_to_load = df_to_load.filter(list_of_col_names)
 
     # create DB metadata object that can access table names, primary keys, etc.
     meta = db.MetaData(db_engine, schema=schema_name)

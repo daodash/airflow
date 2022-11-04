@@ -8,7 +8,7 @@ import requests
 import pandas as pd
 from airflow.models import Variable
 
-from postgres import pg_upsert
+from postgres import pg_append
 
 args = {
     'owner': 'daodash',
@@ -54,7 +54,7 @@ def pull_topics():
         ]
 
         # prep and upsert data
-        isLoaded = pg_upsert(
+        isLoaded = pg_append(
             database_name=db_name,
             df_to_load=df,
             table_name=table_name,

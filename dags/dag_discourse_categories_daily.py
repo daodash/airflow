@@ -8,7 +8,7 @@ import requests
 import pandas as pd
 from airflow.models import Variable
 
-from postgres import pg_upsert
+from postgres import pg_append
 
 #airflow args
 args = {
@@ -37,7 +37,7 @@ def pull_categories():
     df = pd.json_normalize(result['category_list']['categories'])
 
     # prep and upsert data
-    pg_upsert(
+    pg_append(
         database_name=db_name,
         df_to_load=df,
         table_name=table_name,

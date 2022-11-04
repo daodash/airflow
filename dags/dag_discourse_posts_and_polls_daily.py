@@ -9,7 +9,7 @@ import pandas as pd
 
 from airflow.models import Variable
 
-from postgres import pg_upsert, pg_select
+from postgres import pg_append, pg_select
 
 # airflow args
 args = {
@@ -74,7 +74,7 @@ def pull_posts_and_polls():
     # prep and upsert Post data
     table_name = 'discourse_posts'
 
-    pg_upsert(
+    pg_append(
         database_name=db_name,
         df_to_load=posts_df,
         table_name=table_name,
@@ -94,7 +94,7 @@ def pull_posts_and_polls():
     df_polls = pd.concat(polls)
 
     # prep and upsert data
-    pg_upsert(
+    pg_append(
         database_name=db_name,
         df_to_load=df_polls,
         table_name=table_name,
@@ -114,7 +114,7 @@ def pull_posts_and_polls():
     df_votes['id'] = df_votes['poll_id'] * 100 + df_votes['vote_idx']
 
     # prep and upsert data
-    pg_upsert(
+    pg_append(
         database_name=db_name,
         df_to_load=df_votes,
         table_name=table_name,
