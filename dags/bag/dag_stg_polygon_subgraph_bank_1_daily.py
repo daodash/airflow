@@ -5,7 +5,7 @@ from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datetime import datetime, timedelta
 from airflow.models import Variable
-from slack_notify import task_fail_slack_alert
+from scripts.slack_notify import task_fail_slack_alert
 
 # libraries for pipeline
 import os
@@ -15,7 +15,7 @@ import requests
 import pandas as pd
 from pprint import pprint
 
-# Create Postgresql connection to existing table: stg_subgraph_bank_1
+# Create Postgresql connection to existing table: stg_polygon_subgraph_bank_1
 # NOTE: need to use environment variables to separate password from this file
 # db_string = 'postgresql://user:password@localhost:port/mydatabase'
 
@@ -43,11 +43,11 @@ db_string = Variable.get('DB_STRING')
 db = create_engine(db_string)
 
 
-# Run Query to BANK Subgraph
+# Run Query to Polygon BANK Subgraph
 
 
 def run_query(query,variables):
-    request = requests.post('https://api.studio.thegraph.com/query/1121/bankv1/v0.0.5'
+    request = requests.post('https://api.thegraph.com/subgraphs/name/mckethanor/bank-pos'
                             '',
                             json={'query': query, 'variables': variables})
     if request.status_code == 200:
@@ -79,14 +79,14 @@ def graph_etl(query,result,variables,max_id):
     df3 = df2.rename(columns={'index': 'id'}, inplace=False)
     print(df3)
     print("#### need to un-comment next line to push to postgres ####")
-    df3.to_sql('stg_subgraph_bank_1', con=db, if_exists='append', index=False)
+    df3.to_sql('stg_polygon_subgraph_bank_1', con=db, if_exists='append', index=False)
     return df3
 
 def _main():
     # IMPORTANT: grab max_id to later reset_index() to properly append updated dataframe into existing table on primary key (id)
     with db.connect() as conn:
         result = conn.execute(
-            text("SELECT MAX(tx_timestamp) AS max_tx_timestamp, MAX(id) AS max_id FROM stg_subgraph_bank_1"))
+            text("SELECT MAX(tx_timestamp) AS max_tx_timestamp, MAX(id) AS max_id FROM stg_polygon_subgraph_bank_1"))
         for row in result:
             max_tx_timestamp = row.max_tx_timestamp
             max_id = row.max_id
@@ -115,7 +115,7 @@ def _main():
 
 #airflow dag config
 dag = DAG(
-    'stg_subgraph_bank_1_daily',
+    'stg_polygon_subgraph_bank_1_daily',
     schedule_interval="@daily",
     default_args=args,
     max_active_runs=1
@@ -123,7 +123,7 @@ dag = DAG(
 
 #airflow execution flow
 t1 = PythonOperator(
-    task_id = 'stg_subgraph_bank_1_daily.1',
+    task_id = 'stg_polygon_subgraph_bank_1_daily.1',
     python_callable=_main,
     dag=dag
 )

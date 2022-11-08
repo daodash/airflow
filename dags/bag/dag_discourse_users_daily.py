@@ -2,13 +2,13 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datetime import datetime, timedelta
-from slack_notify import task_fail_slack_alert
+from scripts.slack_notify import task_fail_slack_alert
 
 import requests
 import pandas as pd
 from airflow.models import Variable
 
-from postgres import pg_append
+from scripts.postgres import pg_append
 
 #airflow args
 args = {

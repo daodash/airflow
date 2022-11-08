@@ -4,27 +4,15 @@ from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datetime import datetime, timedelta
 from airflow.models import Variable
-from slack_notify import task_fail_slack_alert
+from scripts.slack_notify import task_fail_slack_alert
 
 
 # libraries for pipeline
-import os
-import sqlalchemy
-from sqlalchemy import create_engine
-from sqlalchemy import text
 import requests
-import json
 import pandas as pd
 from pprint import pprint
+from scripts.postgres import pg_select, pg_append
 
-
-# using python-dotenv method
-#from dotenv import load_dotenv
-#load_dotenv()
-
-# Create Postgresql connection to existing table: stg_bankless_snapshot_1
-# NOTE: need to use environment variables to separate password from this file
-# db_string = 'postgresql://user:password@localhost:port/mydatabase'
 
 #airflow args
 args = {
@@ -37,9 +25,7 @@ args = {
 }
 
 
-db_string = Variable.get('DB_STRING')
-db = create_engine(db_string)
-
+db_name = "dao_dash"
 
 
 # Run query to Snapshot Votes API endpoint
@@ -58,7 +44,7 @@ def run_query(query,variables):
 
 
 
-def snapshot_proposal_etl(query,result,variables,max_id):
+def snapshot_proposal_etl(query,variables,max_id):
     # execute run_query and save to result
     result = run_query(query,variables)
     # convert results from JSON to pandas
@@ -71,19 +57,23 @@ def snapshot_proposal_etl(query,result,variables,max_id):
         df.index += 1
         df.index += max_id
         df2 = df.reset_index()
-        # select specific columns
-        df3 = df2[['index', 'id', 'title', 'start', 'end']]
-        # change column name
-        df4 = df3.rename(
-            columns={'index': 'id', 'id': 'proposal_id', 'start': 'start_date', 'end': 'end_date'}, inplace=False)
-        print(df4)
-        #print("#### need to un-comment next line to push to postgres ####")
         print("####pushing to postgres####")
-        df4.to_sql('bankless_snapshot_header_1', con=db, if_exists='append', index=False)
+        pg_append(df_to_load=df2,
+                  database_name=db_name,
+                  table_name='bankless_snapshot_header_1',
+                  list_of_col_names=[
+                      'index', 'id', 'title', 'start', 'end'
+                  ],
+                  rename_mapper={
+                      'index': 'id',
+                      'id': 'proposal_id',
+                      'start': 'start_date',
+                      'end': 'end_date'}
+                  )
         print("####push successful####")
     except:
         print("Nothing to push")
-    #return df4
+    # return df4
 
 # To print out timestamps for 'first priority' and 'positional'
 
@@ -92,15 +82,18 @@ def _main():
     max_id = 0
     max_start_date = 0
 
-    with db.connect() as conn:
-        result = conn.execute(
-            # note ORDER BY start_date, not id
-            text("SELECT id, start_date FROM bankless_snapshot_header_1 ORDER BY start_date DESC LIMIT 1"))
-        for row in result:
-            max_id = row.id
-            max_start_date = row.start_date
-            print("Most recent id :", max_id)
-            print("Most recent start_date :", max_start_date)
+    sql = """
+    SELECT id, start_date FROM bankless_snapshot_header_1 ORDER BY start_date DESC LIMIT 1
+    """
+
+    # Fetch max from bankless_snapshot_header_1
+    result = pg_select(database_name=db_name, query=sql)
+
+    for index, row in result.iterrows():
+        max_id = int(row['id'])
+        max_start_date = int(row['start_date'])
+        print("Most recent id :", max_id)
+        print("Most recent start_date :", max_start_date)
 
     # string interpolation query
     variables = {'start_date': max_start_date}
@@ -134,7 +127,7 @@ def _main():
         }}
     }}
     """
-    snapshot_proposal_etl(query,result,variables,max_id)
+    snapshot_proposal_etl(query,variables,max_id)
 
 
 #airflow dag config

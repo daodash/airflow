@@ -4,7 +4,7 @@ from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datetime import datetime, timedelta
 from airflow.models import Variable
-from slack_notify import task_fail_slack_alert
+from scripts.slack_notify import task_fail_slack_alert
 
 # libraries for pipeline
 import os
