@@ -3,8 +3,7 @@ import sqlalchemy as db
 from typing import Optional, Dict, List
 import psycopg2
 
-
-# from airflow.models import Variable
+from airflow.models import Variable
 
 def create_upsert_method(meta: db.MetaData, extra_update_fields: Optional[Dict[str, str]]):
     """
